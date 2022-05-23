@@ -1,21 +1,8 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-    }
-}
-
 plugins {
-    id 'idea'
-    id 'maven-publish'
+    id "architectury-plugin" version "3.4-SNAPSHOT"
+    id "dev.architectury.loom" version "0.11.0-SNAPSHOT" apply false
     id 'com.matthewprenger.cursegradle' version '1.4.0'
 }
-
-apply plugin: 'net.minecraftforge.gradle'
-apply from: 'minecraft.gradle'
 
 def getGitRef() {
     try {
@@ -30,127 +17,76 @@ def getGitRef() {
     }
 }
 
-version = "${semver}+${getGitRef()}"
-group = 'li.cil.sedna'
-
-java.toolchain {
-    languageVersion = JavaLanguageVersion.of(17)
-    vendor = JvmVendorSpec.ADOPTOPENJDK
+architectury {
+    minecraft = rootProject.minecraft_version
 }
 
-configurations {
-    embed
-    implementation.extendsFrom embed
-}
+subprojects {
+    apply plugin: "dev.architectury.loom"
 
-repositories {
-    mavenCentral()
-    ["fnuecke/ceres", "fnuecke/sedna", "fnuecke/buildroot"].forEach(repo -> {
-        maven {
-            url = uri("https://maven.pkg.github.com/${repo}")
-            credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("GPR_USER")
-                password = project.findProperty("gpr.key") ?: System.getenv("GPR_KEY")
-            }
-        }
-    })
-}
+    configurations {
+        embed
+        implementation.extendsFrom embed
+    }
 
-dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    loom {
+        silentMojangMappingsLicense()
+    }
 
-    embed('li.cil.ceres:ceres:0.0.4') { transitive = false }
-    embed('li.cil.sedna:sedna:2.0.6') { transitive = false }
-    embed('li.cil.sedna:sedna-buildroot:0.0.8') { transitive = false }
-}
+    dependencies {
+        minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+        mappings loom.officialMojangMappings()
 
-minecraft {
-    mappings channel: 'official', version: minecraft_version
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-
-            mods {
-                sedna {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        server {
-            workingDirectory project.file('run')
-
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-
-            mods {
-                sedna {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run')
-
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'info'
-
-            args '--mod', 'sedna', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-
-            mods {
-                sedna {
-                    source sourceSets.main
-                }
-            }
-        }
+        embed("li.cil.ceres:ceres:${ceres_version}") { transitive = false }
+        embed("li.cil.sedna:sedna:${sedna_version}") { transitive = false }
+        embed("li.cil.sedna:sedna-buildroot:${sedna_buildroot_version}") { transitive = false }
     }
 }
 
-jar {
-    finalizedBy 'reobfJar'
+allprojects {
+    apply plugin: "java"
+    apply plugin: "architectury-plugin"
+    apply plugin: "maven-publish"
 
-    configurations.embed.each {
-        from(project.zipTree(it)) {
-            exclude 'META-INF', 'META-INF/**'
-        }
-    }
+    archivesBaseName = rootProject.archives_base_name
+    version = "${rootProject.semver}+${getGitRef()}"
+    group = rootProject.maven_group
 
-    manifest {
-        attributes([
-                'Specification-Title'     : 'sedna',
-                'Specification-Vendor'    : 'Sangar',
-                'Specification-Version'   : '1',
-                'Implementation-Title'    : project.name,
-                'Implementation-Version'  : "${semver}",
-                'Implementation-Vendor'   : 'Sangar',
-                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = project.group
-            artifactId = project.name
-            version = semver
-            artifact jar
-        }
-    }
     repositories {
-        maven {
-            name = "GitHubPackages"
-            url = System.getenv("GITHUB_MAVEN_URL") ?: ""
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+        repositories {
+            mavenCentral()
+            ["fnuecke/ceres", "fnuecke/sedna", "fnuecke/buildroot"].forEach(repo -> {
+                maven {
+                    url = uri("https://maven.pkg.github.com/${repo}")
+                    credentials {
+                        username = project.findProperty("gpr.user") ?: System.getenv("GPR_USER")
+                        password = project.findProperty("gpr.key") ?: System.getenv("GPR_KEY")
+                    }
+                }
+            })
+        }
+    }
+
+    publishing {
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = System.getenv("GITHUB_MAVEN_URL") ?: ""
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
             }
         }
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+        options.release = 17
+    }
+
+    java {
+        withSourcesJar()
     }
 }
 
