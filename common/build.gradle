@@ -7,3 +7,23 @@ loom {}
 dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
 }
+
+jar {
+    configurations.embed.each {
+        from(project.zipTree(it)) {
+            exclude 'META-INF', 'META-INF/**'
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = project.group
+            artifactId = "${rootProject.name}"
+            version = semver
+            artifact remapJar
+            artifact sourcesJar
+        }
+    }
+}

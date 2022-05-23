@@ -24,4 +24,7 @@ logs
 
 # Files from Forge MDK
 forge*changelog.txt
-/src/generated/
+/forge/src/generated/
+
+# Architectury
+.architectury-transformer/
